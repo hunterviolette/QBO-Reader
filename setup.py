@@ -1,5 +1,5 @@
 from setuptools import setup
-from qbo import QuickbooksRegister
+from qbo.qbo import QuickbooksRegister
 
 setup(
     name='qbo',
