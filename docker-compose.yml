@@ -1,0 +1,12 @@
+version: '3'
+
+services:
+  py:
+    build: .
+    tty: true
+    container_name: qbo_app
+    ports:
+      - 8050:8050
+    volumes:
+      - ./vol:/root/vol
+    command: python3 app.py
