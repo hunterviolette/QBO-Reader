@@ -114,22 +114,12 @@ class QBO_CLIENT:
     with open('t.json', 'w') as f: json.dump(data, f, indent=4)
     
     columns = [col['ColTitle'] for col in data['Columns']['Column']]
-
-    rows = []
-    for row in data['Rows']['Row']:
-      if row['type'] == 'Data':
-        rows.append([col.get('value', '') for col in row['ColData']])
-
-
-    
-    '''
-    columns = [col['ColTitle'] for col in data['Columns']['Column']]
     rows = [
         [col['value'] for col in row['ColData']]
           if row['type'] == 'Data'
           else [col['value'] for col in row['Summary']['ColData']]
         for row in data['Rows']['Row']
-      ]'''
+      ]
 
     df = pd.DataFrame(rows, columns=columns)
     df.to_csv('t.csv')
@@ -148,12 +138,11 @@ class QBO_CLIENT:
 
     df = df.merge(accs, on='Split', how='left')
 
-    kwargs["randomize"] = True
     if "randomize" in kwargs.keys():
       if kwargs["randomize"]:
         
-        df['Amount'] = random.uniform(1e-5, 1e5) * df['Amount']
-
+        df['Amount'] = df['Amount'].apply(lambda x: random.uniform(1e-2, 1e2) * x)
+        
         mappings = {}
         cols = ['Name', 'Account', 'Split']
         df[cols] = df[cols].map(
@@ -187,6 +176,6 @@ if __name__ == "__main__":
   if dledg: x.DetailedLedger(
               start_date='2024-01-01',
               end_date='2024-06-17',
-              randomize=True
+              randomize=False
             )
   

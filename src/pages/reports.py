@@ -1,9 +1,9 @@
 import numpy as np
 import plotly.graph_objects as go
+import plotly.express as px
 import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly
-from plotly import express as px
 import os
 import pytz
 
@@ -19,6 +19,10 @@ if __name__ == '__main__':
 else:
     from pages.util.qbo import QBO_CLIENT
     from pages.util.util import Util
+
+import plotly.io as pio
+pio.templates.default = "plotly_dark"
+
 
 register_page(__name__, 
               prevent_initial_callbacks=True,
@@ -49,7 +53,8 @@ class Reports(Util):
                               "GeneralLedger": "General Ledger", 
                               "AccountList": "Account List", 
                               "DetailedLedger": "Detailed Ledger",
-                              "SpendingSummary": "Spending Summary"
+                              "SpendingSummary": "Spending Summary",
+                              "PnL": "Profit and Loss"
                             }
                         ),
         ]),
@@ -151,6 +156,7 @@ class Reports(Util):
         reports = {
             "GeneralLedger": obj.GeneralLedger,
             "SpendingSummary": obj.DetailedLedger,
+            "PnL": obj.DetailedLedger,
             "DetailedLedger": obj.DetailedLedger,
             "AccountList": obj.AccountList,
           }
@@ -189,7 +195,7 @@ class Reports(Util):
                 x=[x["Month Year"]],
                 y=[x["Amount"]],
                 name=x["Month Year"],
-                text=np.round(x["Amount"]/1000, 2).astype(str) + 'K',
+                text=np.round(x["Amount"]/1000, 0).astype(str) + 'K',
                 textposition='auto'
             )), axis=1)
           
@@ -218,7 +224,7 @@ class Reports(Util):
                   path=["Split", "Name"],
                   values='Amount',
                   color='Amount',
-                  color_continuous_scale=px.colors.diverging.Tealrose
+                  color_continuous_scale=px.colors.diverging.Tealrose,
               )
             
             mdiv.extend([
@@ -226,6 +232,65 @@ class Reports(Util):
                 dcc.Graph(figure=fig.update_layout(height=1200))
             ])
             
+        
+        if report == 'PnL':
+          df = (df
+              .assign(**{
+                "Month Year": lambda x: x["Date"].dt.strftime("%Y-%m")
+                })
+              .groupby(['Month Year', 'Type', "Split"], as_index=False
+                ).agg({"Amount": 'sum'})
+            )
+          
+          cols = ["Income", "Cost of Goods Sold", "Expenses"]
+          df = df.loc[df["Type"].isin(cols)]
+          
+          columns = {}
+          for x in ["Gross Profit", "EBITDA"]:
+            
+            if x == 'Gross Profit': d = df.loc[~df["Type"].isin(["Expenses"])]
+            else: d = df
+            
+            columns.update({x: [
+              html.H2(f"{x}:",
+                      className=Reports.Formatting()),
+              
+              dcc.Graph(
+                figure=px.bar(
+                  d.groupby('Month Year', as_index=False).sum().round(2).assign(
+                    amtStr=lambda x: x['Amount'].apply(lambda val: f"{val / 1000:.2f}K")), 
+                  "Month Year", "Amount", text="amtStr", barmode='group'
+                ).update_layout(height=800)),
+              
+              html.H4(f'{x} sum: {np.round(d["Amount"].sum()/1000, 2).astype(str)+"K"}',
+                      className=Reports.Formatting(color='success')),
+            ]})
+                    
+          mdiv.append(
+            dbc.Row([
+              dbc.Col(columns["Gross Profit"]),
+              dbc.Col(columns["EBITDA"]),
+            ], align='center'), # end dbc.row
+          )
+
+          for x in cols:
+            d = df.loc[df["Type"] == x].round(2)
+            
+            mdiv.extend([
+              html.H2(f"{x} breakdown:",
+                      className=Reports.Formatting()),
+              
+              dcc.Graph(
+                figure=px.bar(
+                  d.assign(amtStr=lambda x: x['Amount'].apply(lambda val: f"{val / 1000:.2f}K")), 
+                  "Month Year", "Amount", color='Split', text='amtStr'
+                ).update_layout(height=800)),
+              
+              html.H4(f'{x} sum: {np.round(d["Amount"].sum()/1000, 2).astype(str)+"K"}',
+                      className=Reports.Formatting(color='success')),
+                  
+              ])
+          
         else: mdiv.append(Reports.DarkDashTable(df))
         
         print('plotting...')
