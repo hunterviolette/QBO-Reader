@@ -147,22 +147,32 @@ class QBO_CLIENT:
                     ).rename({"Account": "Split"}, axis=1)
 
     df = df.merge(accs, on='Split', how='left')
-    
+
+    kwargs["randomize"] = True
     if "randomize" in kwargs.keys():
       if kwargs["randomize"]:
         
-        df['Name'] = df['Name'].apply(
-            lambda x: (lambda s, m={}: 
-              m.setdefault(s, ''.join(
-                random.choices(
-                  string.ascii_letters + string.digits, k=len(s)))))(x))
-          
-    print(df)
-    df.to_csv('a.csv')
+        df['Amount'] = random.uniform(1e-5, 1e5) * df['Amount']
+
+        mappings = {}
+        cols = ['Name', 'Account', 'Split']
+        df[cols] = df[cols].map(
+          lambda x: mappings.setdefault(
+            x, 
+            ''.join(
+              random.choices(
+                string.ascii_letters + string.digits, 
+                k=len(str(x))
+                )
+              )
+            )
+          )
+
+    return df
 
 if __name__ == "__main__":
-  ledger, accounts, journal = False, False, False
-  dledg = True
+  ledger, accounts = False, False
+  journal, dledg = False, True
 
   x = QBO_CLIENT('hunter', 'mvp', True)
 
@@ -175,8 +185,8 @@ if __name__ == "__main__":
   if journal: print(x.JournalEntry(date_macro='Last Fiscal Year'))
 
   if dledg: x.DetailedLedger(
-              start_date='2023-01-01',
-              end_date='2023-12-31',
-              #randomize=True
+              start_date='2024-01-01',
+              end_date='2024-06-17',
+              randomize=True
             )
   
